@@ -525,4 +525,37 @@ class AccessIntegrationTest extends TestKitSupport {
             a -> a.status() == 400, "the refusal");
     assertEquals("That slug is already taken.", answer.errorMessage());
   }
+
+  /**
+   * SPEC R148. Checked at the level a caller reads an identifier at, because the setting is about
+   * what the service hands out rather than about the generator: a website, a team and a link are
+   * three different creation paths and one of them could have kept a generator of its own.
+   */
+  @Test
+  void useUuidV7ChangesTheVersionOfEveryIdentifierTheServiceHandsOut() {
+    assertEquals(4, java.util.UUID.fromString(createWebsite("probe v4", "v4.example")).version());
+    io.akka.umami.lib.Env.override("USE_UUIDV7", "1");
+    try {
+      assertEquals(7, java.util.UUID.fromString(createWebsite("probe v7", "v7.example")).version());
+
+      var team = Json.object();
+      team.put("name", "probe v7 team");
+      // The team route answers the team and the owner's membership as a pair, so the identifier
+      // is on the first element rather than on the answer.
+      var created = http.post("/api/teams", team);
+      assertEquals(200, created.status(), String.valueOf(created.body()));
+      assertEquals(7,
+          java.util.UUID.fromString(created.body().get(0).get("id").asText()).version());
+      assertEquals(7,
+          java.util.UUID.fromString(created.body().get(1).get("id").asText()).version());
+
+      var link = Json.object();
+      link.put("name", "probe v7 link");
+      link.put("url", "https://example.test/v7");
+      link.put("slug", "probev7slug");
+      assertEquals(7, java.util.UUID.fromString(http.post("/api/links", link).text("id")).version());
+    } finally {
+      io.akka.umami.lib.Env.clearOverrides();
+    }
+  }
 }

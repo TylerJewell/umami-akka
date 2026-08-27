@@ -80,12 +80,35 @@ public final class Crypto {
    */
   public static UUID uuid(String... args) {
     if (args.length == 0) {
-      return UUID.randomUUID();
+      return Env.isSet("USE_UUIDV7") ? uuidV7() : UUID.randomUUID();
     }
     var joined = new String[args.length + 1];
     System.arraycopy(args, 0, joined, 0, args.length);
     joined[args.length] = secret();
     return uuidV5(DNS_NAMESPACE, hash(joined));
+  }
+
+  /**
+   * A version-7 identifier: forty-eight bits of milliseconds since the epoch, then the version,
+   * then random bits. The leading timestamp is why {@code USE_UUIDV7} exists — identifiers made
+   * later sort after ones made earlier, which a version-4 identifier gives no way to do. SPEC
+   * R148.
+   */
+  static UUID uuidV7() {
+    var bytes = new byte[10];
+    RANDOM.nextBytes(bytes);
+    var millis = System.currentTimeMillis();
+    var high =
+        (millis << 16)
+            | (0x7000L)
+            | ((bytes[0] & 0x0FL) << 8)
+            | (bytes[1] & 0xFFL);
+    var low = 0L;
+    for (int i = 2; i < 10; i++) {
+      low = (low << 8) | (bytes[i] & 0xFFL);
+    }
+    low = (low & 0x3FFFFFFFFFFFFFFFL) | 0x8000000000000000L;
+    return new UUID(high, low);
   }
 
   static UUID uuidV5(UUID namespace, String name) {

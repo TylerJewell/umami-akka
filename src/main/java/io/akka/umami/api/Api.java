@@ -17,6 +17,7 @@ import io.akka.umami.application.Permissions;
 import io.akka.umami.application.Store;
 import io.akka.umami.domain.Accounts;
 import io.akka.umami.domain.Content;
+import io.akka.umami.lib.ApiHeaders;
 import io.akka.umami.lib.Constants;
 import io.akka.umami.lib.Dates;
 import io.akka.umami.lib.Filters;
@@ -177,8 +178,24 @@ public abstract class Api extends AbstractHttpEndpoint {
     }
   }
 
-  /** Runs the body, turning a refusal into its answer and anything else into an unguarded 500. */
+  /**
+   * Runs the body, turning a refusal into its answer and anything else into an unguarded 500, then
+   * puts umami's own headers on whatever came back. SPEC R147: they are applied after the route,
+   * so a route that sets one of them itself does not win.
+   */
   protected HttpResponse answer(Supplier<HttpResponse> work) {
+    return ApiHeaders.api(unheaded(work));
+  }
+
+  /**
+   * The same, for the two collection redirectors. They sit outside {@code /api} in the original
+   * and so carry only the two headers every address gets. SPEC R147.
+   */
+  protected HttpResponse answerOutsideTheApi(Supplier<HttpResponse> work) {
+    return ApiHeaders.everyAddress(unheaded(work));
+  }
+
+  private HttpResponse unheaded(Supplier<HttpResponse> work) {
     try {
       return work.get();
     } catch (Refusal refusal) {

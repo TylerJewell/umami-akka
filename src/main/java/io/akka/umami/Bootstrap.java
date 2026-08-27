@@ -4,6 +4,8 @@ import akka.javasdk.DependencyProvider;
 import akka.javasdk.ServiceSetup;
 import akka.javasdk.annotations.Setup;
 import akka.javasdk.client.ComponentClient;
+import com.typesafe.config.Config;
+import io.akka.umami.lib.ApiHeaders;
 import io.akka.umami.application.Store;
 import io.akka.umami.domain.Accounts;
 import io.akka.umami.lib.Constants;
@@ -25,14 +27,23 @@ public class Bootstrap implements ServiceSetup {
 
   private static final Logger LOG = LoggerFactory.getLogger(Bootstrap.class);
 
+  private static final String DEV_MODE = "akka.javasdk.dev-mode.enabled";
+
   private static final String DEFAULT_ADMIN_ID = "41e2b680-648e-4b09-bcd7-3e2b10c06264";
 
   private final ComponentClient componentClient;
   private final akka.stream.Materializer materializer;
 
-  public Bootstrap(ComponentClient componentClient, akka.stream.Materializer materializer) {
+  public Bootstrap(
+      ComponentClient componentClient, akka.stream.Materializer materializer, Config config) {
     this.componentClient = componentClient;
     this.materializer = materializer;
+    // The runtime's own resolved configuration, which is the only place this reads true in both
+    // of the ways this service runs locally: `mvn exec:java` sets it as a system property and the
+    // test kit does not, and neither shows up in a freshly loaded configuration. SPEC R147.
+    var devMode =
+        config.hasPath(DEV_MODE) && config.getBoolean(DEV_MODE);
+    ApiHeaders.runtimeWritesTheOriginHeader(devMode);
   }
 
   @Override

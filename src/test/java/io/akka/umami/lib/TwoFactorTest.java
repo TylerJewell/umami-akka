@@ -57,7 +57,12 @@ class TwoFactorTest {
     assertNotEquals(TwoFactor.encryptSecret("same"), TwoFactor.encryptSecret("same"));
     var stored = TwoFactor.encryptSecret("same");
     var parts = stored.split(":");
-    var tampered = "ff" + parts[0].substring(2) + ":" + parts[1] + ":" + parts[2];
+    // The first byte is flipped rather than set: assigning it a constant leaves the value
+    // untouched whenever it already held that constant, which for one byte is one run in 256.
+    var first = Integer.parseInt(parts[0].substring(0, 2), 16) ^ 0xFF;
+    var tampered = String.format("%02x", first) + parts[0].substring(2) + ":" + parts[1] + ":"
+        + parts[2];
+    assertNotEquals(stored, tampered, "the tamper has to change something to test anything");
     assertThrows(IllegalArgumentException.class, () -> TwoFactor.decryptSecret(tampered));
   }
 

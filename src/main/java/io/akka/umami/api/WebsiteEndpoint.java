@@ -361,15 +361,21 @@ public class WebsiteEndpoint extends Api {
     });
   }
 
-  /** What the recorder script is told, without any sign-in at all. */
+  /**
+   * What the recorder script is told, without any sign-in at all.
+   *
+   * <p>umami's own handler asks for a sixty-second cache and its own access-control set, and a
+   * caller of umami receives neither: the address-pattern rules are applied after the route and
+   * replace both. So this route sets no headers of its own either. SPEC R147.
+   */
   @Get("/api/websites/{websiteId}/recorder")
   public HttpResponse recorder(String websiteId) {
-    return CollectEndpoint.withCors(answer(() -> {
+    return answer(() -> {
       var website = store.website(websiteId);
       if (website == null || !website.recorderEnabled()) {
         var body = Json.object();
         body.put("enabled", false);
-        return withCache(Responses.json(body));
+        return Responses.json(body);
       }
       var configuration =
           (website.replayConfig() == null ? Content.ReplayConfig.EMPTY : website.replayConfig())
@@ -383,14 +389,8 @@ public class WebsiteEndpoint extends Api {
       body.put("maskLevel", configuration.maskLevel());
       body.put("maxDuration", configuration.maxDuration());
       body.put("blockSelector", configuration.blockSelector());
-      return withCache(Responses.json(body));
-    }));
-  }
-
-  private static HttpResponse withCache(HttpResponse response) {
-    return response.addHeader(
-        akka.http.javadsl.model.headers.RawHeader.create(
-            "Cache-Control", "public, max-age=60, stale-while-revalidate=300"));
+      return Responses.json(body);
+    });
   }
 
   // ------------------------------------------------------------------ sharing

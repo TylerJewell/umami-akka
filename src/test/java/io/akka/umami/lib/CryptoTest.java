@@ -41,6 +41,33 @@ class CryptoTest {
   }
 
   @Test
+  void aFreshIdentifierIsVersionSevenWhenTheSettingIsOnAndVersionFourWhenItIsNot() {
+    assertEquals(4, Crypto.uuid().version());
+    Env.override("USE_UUIDV7", "1");
+    assertEquals(7, Crypto.uuid().version());
+  }
+
+  @Test
+  void aVersionSevenIdentifierCarriesTheInstantItWasMade() {
+    Env.override("USE_UUIDV7", "1");
+    // The leading forty-eight bits are milliseconds since the epoch, which is the whole
+    // difference between the two versions and the only part of one that can be checked.
+    var made = Crypto.uuid();
+    var millis = made.getMostSignificantBits() >>> 16;
+    var drift = Math.abs(System.currentTimeMillis() - millis);
+    assertTrue(drift < 5_000, "the identifier says it was made " + drift + " ms from now");
+  }
+
+  @Test
+  void theSettingDoesNotReachADerivedIdentifier() {
+    var withoutIt = Crypto.uuid("site", "1.2.3.4", "agent", "salt").toString();
+    Env.override("USE_UUIDV7", "1");
+    var withIt = Crypto.uuid("site", "1.2.3.4", "agent", "salt");
+    assertEquals(withoutIt, withIt.toString());
+    assertEquals(5, withIt.version());
+  }
+
+  @Test
   void aDerivedIdentifierIsVersionFive() {
     var uuid = Crypto.uuid("site", "1.2.3.4", "agent", "salt");
     assertEquals(5, uuid.version(), "the derived form is a version-five identifier");
@@ -67,6 +94,7 @@ class CryptoTest {
   void aTamperedValueIsRefusedRatherThanDecoded() {
     var sealed = Crypto.encrypt("value", "password");
     var tampered = sealed.substring(0, sealed.length() - 4) + "AAAA";
+    assertNotEquals(sealed, tampered, "the tamper has to change something to test anything");
     assertThrows(IllegalArgumentException.class, () -> Crypto.decrypt(tampered, "password"));
   }
 

@@ -26,14 +26,14 @@ What it was written down from is in
 
 ## umami-software/umami → this port
 
-📉 23,383 lines → **13,978 lines**<br>
-📁 268 files → **52 files**<br>
+📉 23,383 lines → **14,118 lines**<br>
+📁 268 files → **53 files**<br>
 🔌 129 addresses → **129 addresses**<br>
-🎯 0 of 492 answers compared → **492 of 492 agree**<br>
-🖼️ 0 of 13 screens compared → **13 of 13 compared, 8 identical**<br>
-🧪 53 files of tests → **221 tests**<br>
-⏱️ 12.5 → **28.7** milliseconds to answer the dashboard's main question<br>
-⚡ 10.2 → **5.1** milliseconds to record one event<br>
+🎯 0 of 514 answers compared → **512 of 514 agree**<br>
+🖼️ 0 of 13 screens compared → **13 of 13 compared, 7 identical**<br>
+🧪 53 files of tests → **235 tests**<br>
+⏱️ 15.2 → **31.0** milliseconds to answer the dashboard's main question<br>
+⚡ 10.9 → **5.3** milliseconds to record one event<br>
 📖 0 robot patterns of its own → **209 robot patterns**
 
 Full method and the numbers that did *not* make this list:
@@ -43,11 +43,11 @@ Full method and the numbers that did *not* make this list:
 
 ## What it took to build
 
-⏱️ **97.5 hours** from the first command to the published repository, **8.2** of them active<br>
-💬 **2,970** exchanges with the model<br>
-✍️ **2,118,107** tokens written by the model, **1,050,422,185** counting everything sent and re-sent<br>
+⏱️ **99.6 hours** from the first command to the published repository, **10.2** of them active<br>
+💬 **3,674** exchanges with the model<br>
+✍️ **2,512,059** tokens written by the model, **1,274,161,440** counting everything sent and re-sent<br>
 🙋 **0** questions to a human<br>
-🧪 **221** tests
+🧪 **235** tests
 
 ```bash
 python toolkit/tokens.py --port umami    # turns, tokens, elapsed and active time
@@ -218,8 +218,9 @@ mistakes.
   step, so a question asked immediately after an event already counts it. Here the event is
   stored at once and the index that answers questions is brought up to date just afterwards, so
   the same question asked in the same instant can give the older number. Bringing 200 events into
-  view took 26.0 milliseconds on umami and 1,414.5 on this rebuild. Everything that reads is
-  eventually right; nothing is lost.
+  view took between 22 and 34 milliseconds on umami and between 63 and 1,415 on this rebuild
+  across four measurements — the low end on a quiet machine against an already-warm reader, the
+  high end on a cold one under load. Everything that reads is eventually right; nothing is lost.
 - **Two named events with the same count in the same time bucket come back in a different
   order.** umami's query for that chart sorts by the time bucket only, so which of two names in
   one bucket comes first is left to its store; on the run this was found, umami's own two
@@ -253,26 +254,67 @@ mistakes.
   the published umami image ships no geography database, so it answers no country for every event
   unless a hosting provider's header carries one. This rebuild reads the same five headers and
   the same database when one is configured.
-- **Screens: five regions of thirteen screens differ, all declared.** The column showing how long
-  ago something was created reads as a duration from the moment the picture was taken, and the
-  two pictures are taken minutes apart. The live chart's axis ends at the moment the picture was
-  taken. The visitor faces are drawn from the visitor identifier, which each deployment works out
-  with its own secret. The website identifier and the tracking code contain that identifier and
-  the address the script is served from. And the stacking order of two event series, above. The
-  other eight screens are identical to the pixel.
+- **Screens: six of thirteen differ in declared regions, and the other seven are identical to the
+  pixel.** Three screens carry a column saying how long ago something was created, which reads as
+  a duration from the moment the picture was taken, and the two pictures are taken a minute or so
+  apart. The live chart's whole plotted area shifts one bucket, because its axis ends at the
+  moment the picture was taken. The visitor faces are drawn from the visitor identifier, which
+  each deployment works out with its own secret. And the website identifier and the tracking code
+  contain that identifier and the address the script is served from.
 - **Reading a window costs more here, and how much more depends on how much is in it.** umami
   selects and adds up in one instruction to its database; this rebuild reads the window's records
   back and adds them up itself, because the store it is built on can find records but cannot add
-  them up. Answering the dashboard's main question over two hundred page views took 12.5
-  milliseconds on umami and 28.7 here. Recording an event is twice as fast here, and answering
-  with a fixed value is nearly four times as fast. These figures move by a third between runs on
-  a machine that is doing other things, so what they support is the shape of the difference
-  rather than the exact ratio.
+  them up. Answering the dashboard's main question over two hundred page views took 15.2
+  milliseconds on umami and 31.0 here. Recording an event is twice as fast here, and answering
+  with a fixed value is four times as fast. How busy the machine is decides more than either
+  system does: the same question measured twenty minutes earlier on the same code, with several
+  other builds running, read 12.1 against 65.2 — umami's figure barely moved and this rebuild's
+  doubled. What these numbers support is the shape of the difference, not the exact ratio.
 - **Not checked: behaviour with more than a few thousand records in one window, under load, over
   long periods, or with more than one caller at a time.** The largest window either system was
   asked about here holds 2,000 recorded page views, and everything above that is unmeasured. This
   is worth reading carefully: the one time this rebuild was asked about a window larger than it
   had been asked about before, it turned out to answer nothing at all until that was fixed.
+- **Two settings that need umami's image rebuilt take effect here on a restart.** umami reads
+  the lifetime of a browser's permission check and the instruction to demand a secure
+  connection while its image is being built, so changing either on a running deployment
+  changes nothing until it is built again — checked by starting umami with both changed and
+  seeing neither appear. This rebuild has no build step that reads settings, so it reads both
+  when it answers, and a restart is enough. The two other settings that shape the same headers
+  already take effect on a restart in umami and do here too.
+- **A browser asks permission before every cross-origin request here, and once a day against
+  umami.** Before a browser sends a request that carries a sign-in token to another address, it
+  asks that address whether it is allowed. umami's reply says the answer may be remembered for
+  a day; this rebuild's says nothing, so the browser asks again every time. That reply is
+  written by the runtime this rebuild is built on, before any of its own code is reached — the
+  toolkit it uses has no way to answer that kind of request, and the reply carries none of the
+  headers this rebuild puts on everything it does answer, which is how that was established.
+  Its reply also lists a different set of allowed methods; that one has no consequence, because
+  a browser lets an ordinary read through a permission reply that does not name it.
+- **Answers here do not name the internal request headers umami's page router varies on.**
+  Every umami reply carries a header listing four request headers its own web framework uses to
+  decide which version of a page to send. Those are a fact about the framework umami is built
+  with rather than about umami, and nothing that talks to this rebuild sends them. Both systems
+  tell a cache not to keep the answer at all, so the listing changes nothing either way.
+- **A caller asking only for an answer's headers is told there is nothing there.** A request
+  that asks for the headers of an address without its body is answered by umami exactly as the
+  full request would be, minus the body. Here it is answered "not found", whatever the address:
+  the toolkit this rebuild is built on has no way to declare a handler for that kind of request,
+  and the runtime answers before any of this rebuild's own code is reached. Nothing an ordinary
+  client does uses it — a browser, the interface this rebuild ships, and every check here ask
+  for the body — but a link checker or a cache does.
+- **An address under `/api` that no route claims is answered with none of the headers every
+  other answer carries.** umami matches its header rules on the address, so a path nothing
+  serves is still answered 404 with the permission set and the content policy on it. Here that
+  path reaches nothing this rebuild wrote — the runtime answers it first — so the 404 is bare.
+  Every address a route does claim carries all seven, on every method and every status.
+- **The two short-address redirectors carry one permission header more than umami's while this
+  rebuild is running for development.** The runtime it is built on writes an
+  allow-any-origin header onto everything it serves while in development, and umami puts none
+  on those two addresses. Nothing this rebuild wrote puts it there and it does not appear in a
+  deployment. The same runtime behaviour is why this rebuild writes that one header itself only
+  where nothing else will: two copies of it are read by a browser as one value that matches
+  nothing, and the whole cross-origin call is refused.
 - **Not checked: what happens when the machine running it is interrupted.** Neither system was
   stopped and restarted mid-write during any comparison.
 
@@ -285,5 +327,5 @@ umami's own source**: `webapp/` is umami's front end, 1,295 of 1,313 shared file
 identical, and `src/main/java/io/akka/umami/lib/Bots.java` holds 209 patterns taken from the
 MIT-licensed `isbot` package. This repository therefore carries umami's licence and copyright
 notice in `LICENSE`. Everything else under `src/main/java` is written here. See
-[`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md), which accounts for all 339 pieces of text the two
+[`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md), which accounts for all 346 pieces of text the two
 share.

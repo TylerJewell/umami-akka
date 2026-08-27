@@ -3,7 +3,6 @@ package io.akka.umami.api;
 import akka.http.javadsl.model.HttpEntity;
 import akka.http.javadsl.model.HttpResponse;
 import akka.http.javadsl.model.StatusCodes;
-import akka.http.javadsl.model.headers.RawHeader;
 import akka.javasdk.annotations.Acl;
 import akka.javasdk.annotations.http.Get;
 import akka.javasdk.annotations.http.HttpEndpoint;
@@ -204,7 +203,7 @@ public class CollectEndpoint extends Api {
 
   @Post("/api/record")
   public HttpResponse record(HttpEntity.Strict requestBody) {
-    return withCors(answer(() -> {
+    return answer(() -> {
       var raw = requestBody.getData();
       if (raw.size() > MAXIMUM_RECORD_BYTES) {
         var extra = Json.object();
@@ -319,7 +318,7 @@ public class CollectEndpoint extends Api {
               now,
               now));
       return Responses.ok();
-    }));
+    });
   }
 
   private static HttpResponse refused(String reason) {
@@ -352,14 +351,6 @@ public class CollectEndpoint extends Api {
     return Instant.ofEpochMilli(value.asLong());
   }
 
-  static HttpResponse withCors(HttpResponse response) {
-    return response
-        .addHeader(RawHeader.create("Access-Control-Allow-Origin", "*"))
-        .addHeader(RawHeader.create("Access-Control-Allow-Headers", "Content-Type, x-umami-cache"))
-        .addHeader(RawHeader.create("Access-Control-Allow-Methods", "GET, POST, OPTIONS"))
-        .addHeader(RawHeader.create("Access-Control-Max-Age", Env.get("CORS_MAX_AGE", "86400")));
-  }
-
   // ------------------------------------------------------------------ the two redirectors
 
   /** Collects a payload this service built itself, where there is nothing to answer with. */
@@ -371,7 +362,7 @@ public class CollectEndpoint extends Api {
   /** A tracking image: it records a pixel event and answers one transparent dot. */
   @Get("/p/{slug}")
   public HttpResponse pixel(String slug) {
-    return answer(() -> {
+    return answerOutsideTheApi(() -> {
       var pixel = store.pixelBySlug(slug);
       if (pixel == null) {
         return Responses.notFound();
@@ -394,7 +385,7 @@ public class CollectEndpoint extends Api {
   /** A short link: it records a link event and sends the caller on. */
   @Get("/q/{slug}")
   public HttpResponse link(String slug) {
-    return answer(() -> {
+    return answerOutsideTheApi(() -> {
       var link = store.linkBySlug(slug);
       if (link == null) {
         return Responses.notFound();
@@ -419,13 +410,16 @@ public class CollectEndpoint extends Api {
 
   @Get("/api/heartbeat")
   public HttpResponse heartbeat() {
-    var body = Json.object();
-    body.put("ok", true);
-    return Responses.json(body);
+    return answer(() -> {
+      var body = Json.object();
+      body.put("ok", true);
+      return Responses.json(body);
+    });
   }
 
   @Get("/api/config")
   public HttpResponse config() {
+    return answer(() -> {
     var body = Json.object();
     body.put("cloudMode", Env.isSet("CLOUD_MODE"));
     // A setting with no value is absent from the answer rather than present and null, which
@@ -439,6 +433,7 @@ public class CollectEndpoint extends Api {
     present(body, "trackerScriptName", Env.get("TRACKER_SCRIPT_NAME"));
     body.put("updatesDisabled", Env.isSet("DISABLE_UPDATES"));
     return Responses.json(body);
+    });
   }
 
   private static void present(com.fasterxml.jackson.databind.node.ObjectNode body,
@@ -451,6 +446,7 @@ public class CollectEndpoint extends Api {
   /** The counter script, or a comment where it is switched off. */
   @Get("/api/scripts/telemetry")
   public HttpResponse telemetry() {
+    return answer(() -> {
     if (Env.isSet("DISABLE_TELEMETRY") || Env.isSet("PRIVATE_MODE")
         || !"production".equals(Env.get("NODE_ENV"))) {
       return Responses.text("text/javascript", utf8("/* telemetry disabled */"), Map.of());
@@ -461,5 +457,6 @@ public class CollectEndpoint extends Api {
             + "i.setAttribute('style','position:absolute;left:-9999px;');"
             + "document.body.appendChild(i);})();";
     return Responses.text("text/javascript", utf8(script), Map.of());
+    });
   }
 }

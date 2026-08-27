@@ -50,19 +50,28 @@ Everything under `src/main/java` is this port's own. No file, fixture or block o
 purpose, because a rebuild that answers a different route or a different error message is not a
 rebuild.
 
-`python toolkit/copied_strings.py umami --source umami-src` finds **1,008 literals of ten
-characters or more in `umami-akka`, 339 of which also occur in `umami-src`**. The full list is
-`umami-port/bench/shared-literals.txt`. They fall into seven kinds and every kind is accounted
+`python toolkit/copied_strings.py umami --source umami-src` finds **1,168 literals of ten
+characters or more in `umami-akka`, 346 of which also occur in `umami-src`**. The full list is
+`umami-port/bench/shared-literals.txt`. They fall into eight kinds and every kind is accounted
 for here:
 
 - **Route paths (18 named literally, and the rest of the 129 built from segments)** —
   `/api/auth/login`, `/api/2fa/verify`, `/api/websites/{websiteId}/event-data-pivot` and so on.
   A port whose addresses differed would not be a port; the whole of `probes/route_census.py`
   exists to check that all 129 of them match.
-- **Header names (23)** — `authorization`, `x-umami-cache`, `x-umami-share-token`,
+- **Header names (26)** — `authorization`, `x-umami-cache`, `x-umami-share-token`,
   `cf-connecting-ip`, `x-vercel-ip-country` and the rest of the address and geography headers
-  umami reads. These are the wire, not umami's prose; several are other companies' names for
-  their own headers.
+  umami reads, plus the three it *writes* on every answer: `Content-Security-Policy`,
+  `X-DNS-Prefetch-Control` and `Strict-Transport-Security`. These are the wire, not umami's
+  prose; several are other companies' names for their own headers and three are the web's own.
+- **Header values, and the content policy (6)** — `GET, DELETE, POST, PUT`, `'self' https:`,
+  `connect-src `, `frame-ancestors `, `max-age=63072000; includeSubDomains; preload`. The whole
+  content policy is composed in umami's `src/lib/csp.ts` out of seven directives and two
+  settings, and this rebuild composes the same seven from the same two settings so a caller of
+  either receives the same policy. A policy that differed would permit a different set of
+  things, which is the behaviour being copied. The sixth, `/relative/path`, is not umami's
+  text at all: it is an address this rebuild's own test uses for a setting that is a path
+  rather than an address, and it occurs in the original's test data too.
 - **Messages a caller sees (46)** — `Website not found.`, `Exactly one of website, link, or
   pixel must be provided`, `Value must not start with =, +, -, @, tab, or carriage return`,
   `You must be the owner/manager of this team.` and so on. **These are umami's own wording and
@@ -166,9 +175,12 @@ from `python toolkit/copied_strings.py umami --source umami-src`; the same list 
 /api/users/
 ```
 
-### Header names (23)
+### Header names (26)
 
 ```
+Content-Security-Policy
+Strict-Transport-Security
+X-DNS-Prefetch-Control
 authorization
 cf-connecting-ip
 content-type
@@ -193,6 +205,28 @@ x-vercel-ip-city
 x-vercel-ip-country
 x-vercel-ip-country-region
 ```
+
+### Header values, and the content policy umami composes (6)
+
+Every answer umami gives from `/api` carries a fixed set of headers, and their values are as
+much a part of what a caller receives as any body. These are umami's own — the whole content
+policy comes out of `src/lib/csp.ts`, which composes it from seven directives and two settings,
+and this rebuild composes the same seven from the same two settings so that a caller of either
+receives the same policy. `SPEC-001` R147; the workload `api-response-headers` puts them to the
+running original.
+
+```
+'self' https:
+GET, DELETE, POST, PUT
+connect-src 
+frame-ancestors 
+max-age=63072000; includeSubDomains; preload
+/relative/path
+```
+
+The last is not umami's text: it is an address this rebuild's own test uses to check that a
+setting which is a path rather than an address contributes nothing to the policy, and it happens
+to appear in the original's own test data as well.
 
 ### Messages a caller sees (44)
 

@@ -10,6 +10,7 @@ import akka.javasdk.http.HttpResponses;
 import akka.stream.javadsl.Source;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.akka.umami.lib.Constants;
+import io.akka.umami.lib.ApiHeaders;
 import io.akka.umami.lib.Json;
 import io.akka.umami.lib.Responses;
 import java.time.Duration;
@@ -65,10 +66,10 @@ public class RealtimeEndpoint extends Api {
     try {
       var caller = streamCaller();
       if (!permissions.canViewWebsiteSection(caller, websiteId, List.of("realtime"))) {
-        return Responses.unauthorized();
+        return ApiHeaders.api(Responses.unauthorized());
       }
     } catch (Refusal refusal) {
-      return refusal.response();
+      return ApiHeaders.api(refusal.response());
     }
     return stream(() -> currentRealtime(websiteId));
   }
@@ -78,10 +79,10 @@ public class RealtimeEndpoint extends Api {
     try {
       var caller = streamCaller();
       if (!permissions.canViewWebsiteSection(caller, websiteId, List.of("overview", "realtime"))) {
-        return Responses.unauthorized();
+        return ApiHeaders.api(Responses.unauthorized());
       }
     } catch (Refusal refusal) {
-      return refusal.response();
+      return ApiHeaders.api(refusal.response());
     }
     return stream(
         () -> {
@@ -121,7 +122,7 @@ public class RealtimeEndpoint extends Api {
                   return List.of(answer);
                 })
             .mapMaterializedValue(ignored -> NotUsed.getInstance());
-    return HttpResponses.serverSentEvents(frames);
+    return ApiHeaders.api(HttpResponses.serverSentEvents(frames));
   }
 
   private static String withoutTimestamp(String written) {

@@ -53,8 +53,8 @@ public abstract class Api extends AbstractHttpEndpoint {
   protected final Insight insight;
   protected final io.akka.umami.analytics.Pivot pivot;
 
-  protected Api(ComponentClient client) {
-    this.store = new Store(client);
+  protected Api(ComponentClient client, akka.stream.Materializer materializer) {
+    this.store = new Store(client, materializer);
     this.claims = new Claims(store);
     this.auth = new Auth(store);
     this.permissions = new Permissions(store);

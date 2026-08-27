@@ -23,7 +23,7 @@ class AccessIntegrationTest extends TestKitSupport {
   void signIn() {
     http = new HttpClientSupport("http://localhost:" + testKit.getPort());
     var answer =
-        Settle.until(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
+        Settle.untilStarted(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
             "the first administrator");
     adminId = answer.body().get("user").get("id").asText();
   }

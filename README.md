@@ -26,14 +26,14 @@ What it was written down from is in
 
 ## umami-software/umami → this port
 
-📉 23,383 lines → **13,955 lines**<br>
+📉 23,383 lines → **13,978 lines**<br>
 📁 268 files → **52 files**<br>
 🔌 129 addresses → **129 addresses**<br>
-🎯 0 of 486 answers compared → **486 of 486 agree**<br>
+🎯 0 of 492 answers compared → **492 of 492 agree**<br>
 🖼️ 0 of 13 screens compared → **13 of 13 compared, 8 identical**<br>
-🧪 53 files of tests → **213 tests**<br>
-⏱️ 16.5 → **52.9** milliseconds to answer the dashboard's main question<br>
-⚡ 13.1 → **10.6** milliseconds to record one event<br>
+🧪 53 files of tests → **221 tests**<br>
+⏱️ 12.5 → **28.7** milliseconds to answer the dashboard's main question<br>
+⚡ 10.2 → **5.1** milliseconds to record one event<br>
 📖 0 robot patterns of its own → **209 robot patterns**
 
 Full method and the numbers that did *not* make this list:
@@ -43,11 +43,11 @@ Full method and the numbers that did *not* make this list:
 
 ## What it took to build
 
-⏱️ **95.0 hours** from the first command to the published repository, **5.9** of them active<br>
-💬 **2,088** exchanges with the model<br>
-✍️ **1,639,618** tokens written by the model, **693,592,034** counting everything sent and re-sent<br>
+⏱️ **97.5 hours** from the first command to the published repository, **8.2** of them active<br>
+💬 **2,970** exchanges with the model<br>
+✍️ **2,118,107** tokens written by the model, **1,050,422,185** counting everything sent and re-sent<br>
 🙋 **0** questions to a human<br>
-🧪 **213** tests
+🧪 **221** tests
 
 ```bash
 python toolkit/tokens.py --port umami    # turns, tokens, elapsed and active time
@@ -62,6 +62,10 @@ The record of where the time went is in
 
 - **One event is one stored fact, and a fact is never changed.** Every figure the dashboard shows
   is worked out from the facts in the window each time it is asked.
+- **The word "fact" here covers more than a page view.** A named event and its properties, a
+  visitor's session and the things known about it, a purchase, a click position on a heatmap, a
+  chunk of a recorded session, and the link between a visitor and a name they gave — each is one
+  stored fact of its own kind.
 - **A page view and a named event are different kinds of thing.** Three page views and one named
   event in the same visit count as three views, not four.
 - **A visit with one view and nothing named is a bounce.** A filter narrows which events are
@@ -102,6 +106,11 @@ happening on it costs nothing at all.
 **Two kinds of stored thing, kept apart.** A recorded event is written once and only ever read as
 part of a range; an account or a website is read on its own and changed rarely. Keeping them in
 separate places keeps a busy website's traffic out of the index every account list walks.
+
+**Every list arrives as it is found, not all at once.** A question about a busy week can touch
+any number of records, and asking for them in one reply has a limit that a busy week goes past.
+Reading them as they arrive has no limit, so there is no amount of traffic that makes a question
+unanswerable.
 
 ---
 
@@ -209,7 +218,7 @@ mistakes.
   step, so a question asked immediately after an event already counts it. Here the event is
   stored at once and the index that answers questions is brought up to date just afterwards, so
   the same question asked in the same instant can give the older number. Bringing 200 events into
-  view took 45.6 milliseconds on umami and 818.9 on this rebuild. Everything that reads is
+  view took 26.0 milliseconds on umami and 1,414.5 on this rebuild. Everything that reads is
   eventually right; nothing is lost.
 - **Two named events with the same count in the same time bucket come back in a different
   order.** umami's query for that chart sorts by the time bucket only, so which of two names in
@@ -251,9 +260,19 @@ mistakes.
   with its own secret. The website identifier and the tracking code contain that identifier and
   the address the script is served from. And the stacking order of two event series, above. The
   other eight screens are identical to the pixel.
-- **Not checked: behaviour under load, over long periods, or with more than one caller at a
-  time.** Every measurement was one caller, one window, at most 800 recorded events, on one
-  machine.
+- **Reading a window costs more here, and how much more depends on how much is in it.** umami
+  selects and adds up in one instruction to its database; this rebuild reads the window's records
+  back and adds them up itself, because the store it is built on can find records but cannot add
+  them up. Answering the dashboard's main question over two hundred page views took 12.5
+  milliseconds on umami and 28.7 here. Recording an event is twice as fast here, and answering
+  with a fixed value is nearly four times as fast. These figures move by a third between runs on
+  a machine that is doing other things, so what they support is the shape of the difference
+  rather than the exact ratio.
+- **Not checked: behaviour with more than a few thousand records in one window, under load, over
+  long periods, or with more than one caller at a time.** The largest window either system was
+  asked about here holds 2,000 recorded page views, and everything above that is unmeasured. This
+  is worth reading carefully: the one time this rebuild was asked about a window larger than it
+  had been asked about before, it turned out to answer nothing at all until that was fixed.
 - **Not checked: what happens when the machine running it is interrupted.** Neither system was
   stopped and restarted mid-write during any comparison.
 

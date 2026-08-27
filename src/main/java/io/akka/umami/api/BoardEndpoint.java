@@ -29,8 +29,8 @@ import java.util.List;
 @HttpEndpoint
 public class BoardEndpoint extends Api {
 
-  public BoardEndpoint(ComponentClient client) {
-    super(client);
+  public BoardEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   @Get("/api/boards")

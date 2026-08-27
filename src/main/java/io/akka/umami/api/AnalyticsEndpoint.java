@@ -20,8 +20,8 @@ import java.util.List;
 @HttpEndpoint
 public class AnalyticsEndpoint extends Api {
 
-  public AnalyticsEndpoint(ComponentClient client) {
-    super(client);
+  public AnalyticsEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   private static final List<String> OVERVIEW = List.of("overview", "compare");

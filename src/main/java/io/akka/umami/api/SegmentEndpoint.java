@@ -26,8 +26,8 @@ import java.util.List;
 @HttpEndpoint
 public class SegmentEndpoint extends Api {
 
-  public SegmentEndpoint(ComponentClient client) {
-    super(client);
+  public SegmentEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   // ------------------------------------------------------------------ segments

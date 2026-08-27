@@ -36,7 +36,7 @@ class StreamIntegrationTest extends TestKitSupport {
   void signIn() {
     http = new HttpClientSupport("http://localhost:" + testKit.getPort());
     raw = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
-    Settle.until(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
+    Settle.untilStarted(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
         "the first administrator");
   }
 

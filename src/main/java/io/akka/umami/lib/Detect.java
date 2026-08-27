@@ -27,6 +27,12 @@ public final class Detect {
       String city) {}
 
   // --- browsers, in the order the original tries them ---------------------------------------
+  //
+  // End-of-input is written as the explicit anchor rather than the ordinary one, because
+  // the two languages disagree about a trailing newline: the original's anchor matches only
+  // at the very end, and Java's ordinary one also matches just before a final line
+  // terminator. A user agent arrives in the collection payload as well as in a header, so a
+  // caller can put a newline in one, and the difference is a browser name against nothing.
   private static final List<Map.Entry<String, Pattern>> BROWSERS =
       List.of(
           Map.entry("aol", Pattern.compile("AOLShield/([0-9._]+)")),
@@ -36,29 +42,29 @@ public final class Detect {
           Map.entry("kakaotalk", Pattern.compile("KAKAOTALK\\s([0-9.]+)")),
           Map.entry("samsung", Pattern.compile("SamsungBrowser/([0-9.]+)")),
           Map.entry("silk", Pattern.compile("\\bSilk/([0-9._-]+)\\b")),
-          Map.entry("miui", Pattern.compile("MiuiBrowser/([0-9.]+)$")),
+          Map.entry("miui", Pattern.compile("MiuiBrowser/([0-9.]+)\\z")),
           Map.entry("beaker", Pattern.compile("BeakerBrowser/([0-9.]+)")),
           Map.entry("edge-chromium", Pattern.compile("EdgA?/([0-9.]+)")),
           Map.entry(
               "chromium-webview",
-              Pattern.compile("(?!Chrom.*OPR)wv\\).*Chrom(?:e|ium)/([0-9.]+)(:?\\s|$)")),
-          Map.entry("chrome", Pattern.compile("(?!Chrom.*OPR)Chrom(?:e|ium)/([0-9.]+)(:?\\s|$)")),
-          Map.entry("phantomjs", Pattern.compile("PhantomJS/([0-9.]+)(:?\\s|$)")),
-          Map.entry("crios", Pattern.compile("CriOS/([0-9.]+)(:?\\s|$)")),
-          Map.entry("firefox", Pattern.compile("Firefox/([0-9.]+)(?:\\s|$)")),
+              Pattern.compile("(?!Chrom.*OPR)wv\\).*Chrom(?:e|ium)/([0-9.]+)(:?\\s|\\z)")),
+          Map.entry("chrome", Pattern.compile("(?!Chrom.*OPR)Chrom(?:e|ium)/([0-9.]+)(:?\\s|\\z)")),
+          Map.entry("phantomjs", Pattern.compile("PhantomJS/([0-9.]+)(:?\\s|\\z)")),
+          Map.entry("crios", Pattern.compile("CriOS/([0-9.]+)(:?\\s|\\z)")),
+          Map.entry("firefox", Pattern.compile("Firefox/([0-9.]+)(?:\\s|\\z)")),
           Map.entry("fxios", Pattern.compile("FxiOS/([0-9.]+)")),
           Map.entry("opera-mini", Pattern.compile("Opera Mini.*Version/([0-9.]+)")),
-          Map.entry("opera", Pattern.compile("Opera/([0-9.]+)(?:\\s|$)")),
-          Map.entry("opera", Pattern.compile("OPR/([0-9.]+)(:?\\s|$)")),
+          Map.entry("opera", Pattern.compile("Opera/([0-9.]+)(?:\\s|\\z)")),
+          Map.entry("opera", Pattern.compile("OPR/([0-9.]+)(:?\\s|\\z)")),
           Map.entry(
-              "pie", Pattern.compile("^Microsoft Pocket Internet Explorer/(\\d+\\.\\d+)$")),
+              "pie", Pattern.compile("^Microsoft Pocket Internet Explorer/(\\d+\\.\\d+)\\z")),
           Map.entry(
               "pie",
               Pattern.compile(
                   "^Mozilla/\\d\\.\\d+\\s\\(compatible;\\s(?:MSP?IE|MSInternet Explorer)"
-                      + " (\\d+\\.\\d+);.*Windows CE.*\\)$")),
+                      + " (\\d+\\.\\d+);.*Windows CE.*\\)\\z")),
           Map.entry("netfront", Pattern.compile("^Mozilla/\\d\\.\\d+.*NetFront/(\\d.\\d)")),
-          Map.entry("ie", Pattern.compile("Trident/7\\.0.*rv:([0-9.]+).*\\).*Gecko$")),
+          Map.entry("ie", Pattern.compile("Trident/7\\.0.*rv:([0-9.]+).*\\).*Gecko\\z")),
           Map.entry("ie", Pattern.compile("MSIE\\s([0-9.]+);.*Trident/[4-7].0")),
           Map.entry("ie", Pattern.compile("MSIE\\s(7\\.0)")),
           Map.entry("bb10", Pattern.compile("BB10;\\sTouch.*Version/([0-9.]+)")),
@@ -68,7 +74,19 @@ public final class Detect {
           Map.entry("facebook", Pattern.compile("FB[AS]V/([0-9.]+)")),
           Map.entry("instagram", Pattern.compile("Instagram\\s([0-9.]+)")),
           Map.entry("ios-webview", Pattern.compile("AppleWebKit/([0-9.]+).*Mobile")),
-          Map.entry("ios-webview", Pattern.compile("AppleWebKit/([0-9.]+).*Gecko\\)$")));
+          Map.entry("ios-webview", Pattern.compile("AppleWebKit/([0-9.]+).*Gecko\\)\\z")),
+          Map.entry("curl", Pattern.compile("^curl/([0-9.]+)\\z")),
+          // The last rule, and the one that reads oddly: what it returns is the name
+          // `searchbot`, and the name is all the original takes from it. The detector has a
+          // second entry point that turns this same match into a robot verdict; umami does not
+          // call that one, and settles the robot question separately through `isBot`. So an
+          // agent the robot list lets through and this pattern matches is recorded as a
+          // visitor whose browser is `searchbot`.
+          Map.entry(
+              "searchbot",
+              Pattern.compile(
+                  "alexa|bot|crawl(er|ing)|facebookexternalhit|feedburner|google web preview"
+                      + "|nagios|postrank|pingdom|slurp|spider|yahoo!|yandex")));
 
   // --- operating systems, in the order the original tries them --------------------------------
   private static final List<Map.Entry<String, Pattern>> OPERATING_SYSTEMS =

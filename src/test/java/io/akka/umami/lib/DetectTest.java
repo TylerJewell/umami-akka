@@ -34,6 +34,49 @@ class DetectTest {
     assertEquals("edge-chromium", Detect.browserName(CHROME_ON_WINDOWS + " Edg/120.0.0.0"));
   }
 
+  /**
+   * SPEC R50a: the two rules at the end of the list, the ones a hand-written table stops before.
+   *
+   * <p>Both are reachable in a running deployment and neither is reached often. `curl` needs the
+   * robot check turned off, because the robot list refuses that agent first; `searchbot` needs an
+   * agent the robot list does not refuse, which the last case is -- checked against the running
+   * original, question-log row 76.
+   */
+  @Test
+  void theTwoRulesAfterTheBrowsersAreStillBrowserNames() {
+    assertEquals("curl", Detect.browserName("curl/8.4.0"));
+    assertNull(Detect.browserName("curl/8.4.0 something"), "the rule is anchored at both ends");
+    assertEquals("searchbot", Detect.browserName("mozilla/5.0 yahoo!"));
+    assertEquals("searchbot", Detect.browserName("something feedburner"));
+    assertEquals("chrome", Detect.browserName(CHROME_ON_WINDOWS + " yahoo!"),
+        "an earlier rule still wins: the list is ordered and searchbot is last");
+  }
+
+  /**
+   * SPEC R50a: every rule anchored at the end is anchored at the end of the whole agent.
+   *
+   * <p>Java's ordinary end anchor also matches immediately before a final line terminator and the
+   * original's does not, so an agent with a newline on it resolves to a browser here and to
+   * nothing there. Checked against the running original: `Mozilla/5.0 MiuiBrowser/17.0` is stored
+   * as `miui` and the same string with a newline is stored with no browser at all. Question-log
+   * row 78.
+   */
+  @Test
+  void anAgentWithANewlineOnTheEndMatchesNoRuleAnchoredThere() {
+    assertEquals("miui", Detect.browserName("Mozilla/5.0 MiuiBrowser/17.0"));
+    assertNull(Detect.browserName("Mozilla/5.0 MiuiBrowser/17.0\n"));
+    assertEquals("curl", Detect.browserName("curl/8.4.0"));
+    assertNull(Detect.browserName("curl/8.4.0\n"));
+    var webview = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko)";
+    assertEquals("ios-webview", Detect.browserName(webview));
+    assertNull(Detect.browserName(webview + "\n"));
+    // A rule ending in `\s or end` is not affected, because a newline is whitespace on
+    // both sides and the first half of the alternation matches. The original answers
+    // `chrome` for both of these, which is what makes the three above the whole of it.
+    assertEquals("chrome", Detect.browserName("Mozilla/5.0 Chrome/120.0.0.0"));
+    assertEquals("chrome", Detect.browserName("Mozilla/5.0 Chrome/120.0.0.0\n"));
+  }
+
   @Test
   void anUnclassifiableAgentRecordsNoBrowserAtAll() {
     assertNull(Detect.browserName("some-agent/1.0"));

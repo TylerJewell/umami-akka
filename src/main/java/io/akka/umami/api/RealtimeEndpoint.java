@@ -36,8 +36,8 @@ public class RealtimeEndpoint extends Api {
   /** How often the stream looks for a change. RENDERING R1.2 asks for under 250 ms at the 95th. */
   private static final Duration TICK = Duration.ofMillis(100);
 
-  public RealtimeEndpoint(ComponentClient client) {
-    super(client);
+  public RealtimeEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   @Get("/api/realtime/{websiteId}")

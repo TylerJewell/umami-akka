@@ -35,8 +35,8 @@ public class TwoFactorEndpoint extends Api {
 
   private static final String SETTING_GLOBAL = "twoFactorRequiredGlobal";
 
-  public TwoFactorEndpoint(ComponentClient client) {
-    super(client);
+  public TwoFactorEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   private static boolean hosted() {

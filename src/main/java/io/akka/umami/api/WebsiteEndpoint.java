@@ -34,8 +34,8 @@ import java.util.zip.ZipOutputStream;
 @HttpEndpoint
 public class WebsiteEndpoint extends Api {
 
-  public WebsiteEndpoint(ComponentClient client) {
-    super(client);
+  public WebsiteEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   // ------------------------------------------------------------------ the list

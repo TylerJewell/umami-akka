@@ -27,9 +27,13 @@ public final class HttpClientSupport {
 
   public HttpClientSupport(String base) {
     this.base = base;
+    // The connect deadline is the request deadline, not a tenth of it. A shorter one turns a
+    // machine that is busy elsewhere into a failed test: the service is up and answering, and
+    // the socket simply took longer than the constant to be accepted. What comes back is
+    // `the request failed: POST /...` with no status, which reads as a fault in the service.
     this.client =
         HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
+            .connectTimeout(Duration.ofSeconds(60))
             .followRedirects(HttpClient.Redirect.NEVER)
             .build();
   }

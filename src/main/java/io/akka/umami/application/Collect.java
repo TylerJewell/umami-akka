@@ -228,6 +228,10 @@ public final class Collect {
       return;
     }
     for (var property : Values.flatten(data)) {
+      // Keyed on the session and the property name together, so writing the same key again
+      // replaces the value rather than adding a second one. That is what makes a session hold
+      // one value per property, and it is where the rule lives — the readers do no
+      // deduplicating of their own. The original's own table is unique on the same pair.
       store.putFact(
           Store.SESSION_DATA,
           sessionId + ":" + property.key(),

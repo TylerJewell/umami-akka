@@ -1,6 +1,7 @@
 package io.akka.umami.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,7 +36,7 @@ class PivotIntegrationTest extends TestKitSupport {
   @BeforeEach
   void signIn() {
     http = new HttpClientSupport("http://localhost:" + testKit.getPort());
-    Settle.until(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
+    Settle.untilStarted(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
         "the first administrator");
   }
 
@@ -122,6 +123,20 @@ class PivotIntegrationTest extends TestKitSupport {
         + (tail.contains("?") ? "&" : "?") + "startAt=" + START + "&endAt=" + END;
   }
 
+  /**
+   * Waits until the pivot shows every event that was written, and only then reads.
+   *
+   * <p>A series read is satisfied far too early: one bucket exists as soon as the first event
+   * of the bucket has settled, so a wait on "one bucket" is a wait for one event of several.
+   * The pivot has one row per event, so it is the read that can count.
+   */
+  private void settledEvents(String websiteId, String eventName, int expected) {
+    Settle.until(
+        () -> ask(query(websiteId, "/event-data-pivot?eventName=" + eventName + "&pageSize=500")),
+        a -> a.status() == 200 && a.body().get("data").size() == expected,
+        expected + " " + eventName + " event(s)");
+  }
+
   // ------------------------------------------------------------------ event properties
 
   @Test
@@ -154,6 +169,33 @@ class PivotIntegrationTest extends TestKitSupport {
     assertEquals("/checkout", rows.get(0).get("urlPath").asText());
   }
 
+  /** SPEC R133: a ceiling on results stops the counting, not the paging. */
+  @Test
+  void aCeilingOnResultsStopsTheCountingNotThePaging() {
+    var websiteId = createWebsite("event pivot capped");
+    for (int i = 0; i < 3; i++) {
+      sendEvent(websiteId, "purchase", BASE + i * 1000L, "203.0.113." + (150 + i),
+          data -> data.put("plan", "pro"));
+    }
+
+    Settle.until(
+        () -> ask(query(websiteId, "/event-data-pivot?eventName=purchase")),
+        a -> a.status() == 200 && a.body().get("data").size() == 3,
+        "all three purchases");
+
+    var capped = ask(query(websiteId, "/event-data-pivot?eventName=purchase&maxResults=2"));
+    assertEquals(200, capped.status());
+    // The page still holds every row a page size of twenty would hold.
+    assertEquals(3, capped.body().get("data").size());
+    // The count reports the ceiling rather than the total behind it.
+    assertEquals(2, capped.body().get("count").asInt());
+    assertTrue(capped.body().get("isCapped").asBoolean());
+
+    var uncapped = ask(query(websiteId, "/event-data-pivot?eventName=purchase"));
+    assertEquals(3, uncapped.body().get("count").asInt());
+    assertFalse(uncapped.body().get("isCapped").asBoolean());
+  }
+
   @Test
   void eventPivotRefusesWithoutAnEventName() {
     var websiteId = createWebsite("event pivot refusal");
@@ -168,11 +210,10 @@ class PivotIntegrationTest extends TestKitSupport {
     sendEvent(websiteId, "purchase", BASE + 1000L, "203.0.113.12", data -> data.put("amount", 20));
     sendEvent(websiteId, "purchase", BASE + 2000L, "203.0.113.13", data -> data.put("amount", 30));
 
-    var answer = Settle.until(
-        () -> ask(query(websiteId,
-            "/event-data-pivot/numeric-stats?eventName=purchase&propertyName=amount")),
-        a -> a.status() == 200 && !"0".equals(a.body().get("total").asText()),
-        "three amounts summarised");
+    settledEvents(websiteId, "purchase", 3);
+    var answer = ask(query(websiteId,
+        "/event-data-pivot/numeric-stats?eventName=purchase&propertyName=amount"));
+    assertEquals(200, answer.status());
     var body = answer.body();
     assertEquals("60", body.get("total").asText());
     assertEquals("20", body.get("average").asText());
@@ -197,11 +238,10 @@ class PivotIntegrationTest extends TestKitSupport {
     sendEvent(websiteId, "purchase", BASE, "203.0.113.21", data -> data.put("amount", 10));
     sendEvent(websiteId, "purchase", BASE + 1000L, "203.0.113.22", data -> data.put("amount", 30));
 
-    var answer = Settle.until(
-        () -> ask(query(websiteId,
-            "/event-data-pivot/numeric-stats?eventName=purchase&propertyName=amount")),
-        a -> a.status() == 200 && !"0".equals(a.body().get("total").asText()),
-        "two amounts summarised");
+    settledEvents(websiteId, "purchase", 2);
+    var answer = ask(query(websiteId,
+        "/event-data-pivot/numeric-stats?eventName=purchase&propertyName=amount"));
+    assertEquals(200, answer.status());
     assertEquals("20", answer.body().get("median").asText());
   }
 
@@ -211,12 +251,12 @@ class PivotIntegrationTest extends TestKitSupport {
     sendEvent(websiteId, "purchase", BASE, "203.0.113.31", data -> data.put("amount", 4));
     sendEvent(websiteId, "purchase", BASE + 1000L, "203.0.113.32", data -> data.put("amount", 6));
 
-    var sum = Settle.until(
-        () -> ask(query(websiteId,
-            "/event-data-pivot/numeric-series?eventName=purchase&propertyName=amount"
-                + "&unit=hour&timezone=UTC")),
-        a -> a.status() == 200 && a.body().size() == 1,
-        "one bucket");
+    settledEvents(websiteId, "purchase", 2);
+    var sum = ask(query(websiteId,
+        "/event-data-pivot/numeric-series?eventName=purchase&propertyName=amount"
+            + "&unit=hour&timezone=UTC"));
+    assertEquals(200, sum.status());
+    assertEquals(1, sum.body().size());
     assertEquals("10", sum.body().get(0).get("y").asText());
     assertTrue(sum.body().get(0).get("t").asText().endsWith("Z"));
 
@@ -248,12 +288,12 @@ class PivotIntegrationTest extends TestKitSupport {
     sendEvent(websiteId, "purchase", BASE + 1000L, "203.0.113.42", data -> data.put("plan", "pro"));
     sendEvent(websiteId, "purchase", BASE + 2000L, "203.0.113.43", data -> data.put("plan", "free"));
 
-    var answer = Settle.until(
-        () -> ask(query(websiteId,
-            "/event-data-pivot/property-series?eventName=purchase&propertyName=plan"
-                + "&unit=hour&timezone=UTC")),
-        a -> a.status() == 200 && a.body().size() == 2,
-        "two values in one bucket");
+    settledEvents(websiteId, "purchase", 3);
+    var answer = ask(query(websiteId,
+        "/event-data-pivot/property-series?eventName=purchase&propertyName=plan"
+            + "&unit=hour&timezone=UTC"));
+    assertEquals(200, answer.status());
+    assertEquals(2, answer.body().size());
     var counts = new java.util.HashMap<String, Integer>();
     answer.body().forEach(point -> counts.put(point.get("x").asText(), point.get("y").asInt()));
     assertEquals(2, counts.get("pro"));
@@ -268,12 +308,12 @@ class PivotIntegrationTest extends TestKitSupport {
     sendEvent(websiteId, "purchase", BASE + 1000L, "203.0.113.52",
         data -> data.set("tags", Json.array().add("b")));
 
-    var answer = Settle.until(
-        () -> ask(query(websiteId,
-            "/event-data-pivot/array-series?eventName=purchase&propertyName=tags"
-                + "&unit=hour&timezone=UTC")),
-        a -> a.status() == 200 && a.body().size() == 2,
-        "both elements");
+    settledEvents(websiteId, "purchase", 2);
+    var answer = ask(query(websiteId,
+        "/event-data-pivot/array-series?eventName=purchase&propertyName=tags"
+            + "&unit=hour&timezone=UTC"));
+    assertEquals(200, answer.status());
+    assertEquals(2, answer.body().size());
     var counts = new java.util.HashMap<String, Integer>();
     answer.body().forEach(point -> counts.put(point.get("x").asText(), point.get("y").asInt()));
     assertEquals(1, counts.get("a"));
@@ -288,12 +328,12 @@ class PivotIntegrationTest extends TestKitSupport {
     sendEvent(websiteId, "purchase", BASE + 1000L, "203.0.113.62",
         data -> data.put("renews", "2026-01-01T00:00:00Z"));
 
-    var answer = Settle.until(
-        () -> ask(query(websiteId,
-            "/event-data-pivot/date-series?eventName=purchase&propertyName=renews"
-                + "&timezone=UTC")),
-        a -> a.status() == 200 && a.body().size() == 1,
-        "one second");
+    settledEvents(websiteId, "purchase", 2);
+    var answer = ask(query(websiteId,
+        "/event-data-pivot/date-series?eventName=purchase&propertyName=renews"
+            + "&timezone=UTC"));
+    assertEquals(200, answer.status());
+    assertEquals(1, answer.body().size());
     assertEquals(2, answer.body().get(0).get("y").asInt());
     assertEquals("2026-01-01T00:00:00Z", answer.body().get(0).get("t").asText());
   }
@@ -336,6 +376,38 @@ class PivotIntegrationTest extends TestKitSupport {
     assertEquals("person-1", row.get("distinctId").asText());
   }
 
+  /**
+   * R140: a session holds one value per property, because the second write replaces the first
+   * where it is stored.
+   *
+   * <p>The pivot cannot show this. Its reader takes each key's newest row and never has to
+   * choose, so it answers `pro` whether the store holds one row for the key or two — which is
+   * what made a mutant breaking the write key survive a test named for this rule. The read that
+   * can tell them apart is the one that counts: the original's values query joins the property
+   * table onto the event table and counts rows, so a duplicate key would come back as a second
+   * value. Checked against the running original, question-log row 77.
+   */
+  @Test
+  void aSecondWriteOfASessionPropertyReplacesTheFirst() {
+    var websiteId = createWebsite("session property replacement");
+    identify(websiteId, "person-r", BASE, "203.0.113.141", data -> data.put("plan", "free"));
+    identify(websiteId, "person-r", BASE + 60_000L, "203.0.113.141",
+        data -> data.put("plan", "pro"));
+
+    Settle.until(
+        () -> ask(query(websiteId, "/session-data-pivot?propertyName=plan")),
+        a -> a.status() == 200 && a.body().get("data").size() == 1
+            && "pro".equals(valueOf(a.body().get("data").get(0), "plan")),
+        "both writes settled, the later one winning");
+
+    var answer = ask(query(websiteId, "/session-data/values?propertyName=plan"));
+    assertEquals(200, answer.status());
+    assertEquals(1, answer.body().size(), "one row per key per session, not one per write");
+    assertEquals("pro", answer.body().get(0).get("value").asText());
+    assertEquals(2, answer.body().get(0).get("total").asInt(),
+        "the count is the session's events, once, because there is one property row");
+  }
+
   @Test
   void sessionPivotShowsOnlySessionsHoldingTheNamedProperty() {
     var websiteId = createWebsite("session pivot narrowing");
@@ -375,11 +447,16 @@ class PivotIntegrationTest extends TestKitSupport {
     identify(websiteId, "person-e", BASE, "203.0.113.111", data -> data.put("seats", 5));
     identify(websiteId, "person-f", BASE, "203.0.113.112", data -> data.put("seats", 7));
 
-    var count = Settle.until(
-        () -> ask(query(websiteId,
-            "/session-data/numeric-series?propertyName=seats&metric=count&unit=hour&timezone=UTC")),
-        a -> a.status() == 200 && a.body().size() == 1,
-        "one bucket");
+    // One bucket exists as soon as either session has settled, so waiting for a bucket waits
+    // for half the traffic. The pivot is the read that can say both arrived.
+    Settle.until(
+        () -> ask(query(websiteId, "/session-data-pivot?propertyName=seats")),
+        a -> a.status() == 200 && a.body().get("data").size() == 2,
+        "both sessions");
+    var count = ask(query(websiteId,
+        "/session-data/numeric-series?propertyName=seats&metric=count&unit=hour&timezone=UTC"));
+    assertEquals(200, count.status());
+    assertEquals(1, count.body().size());
     assertEquals(2, count.body().get(0).get("y").asInt());
 
     var sum = ask(query(websiteId,
@@ -394,11 +471,14 @@ class PivotIntegrationTest extends TestKitSupport {
     identify(websiteId, "person-h", BASE, "203.0.113.122", data -> data.put("plan", "pro"));
     identify(websiteId, "person-i", BASE, "203.0.113.123", data -> data.put("plan", "free"));
 
-    var answer = Settle.until(
-        () -> ask(query(websiteId,
-            "/session-data/property-series?propertyName=plan&unit=hour&timezone=UTC")),
-        a -> a.status() == 200 && a.body().size() == 2,
-        "two values");
+    Settle.until(
+        () -> ask(query(websiteId, "/session-data-pivot?propertyName=plan")),
+        a -> a.status() == 200 && a.body().get("data").size() == 3,
+        "all three sessions");
+    var answer = ask(query(websiteId,
+        "/session-data/property-series?propertyName=plan&unit=hour&timezone=UTC"));
+    assertEquals(200, answer.status());
+    assertEquals(2, answer.body().size());
     var counts = new java.util.HashMap<String, Integer>();
     answer.body().forEach(point -> counts.put(point.get("x").asText(), point.get("y").asInt()));
     assertEquals(2, counts.get("pro"));
@@ -414,10 +494,13 @@ class PivotIntegrationTest extends TestKitSupport {
     sendEvent(websiteId, "click", BASE + 1000L, "203.0.113.131", data -> data.put("where", "top"));
     sendEvent(websiteId, "click", BASE + 2000L, "203.0.113.131", data -> data.put("where", "top"));
 
+    // Both labels appear as soon as the two identifies settle, which is before the clicks
+    // that decide the order — so the wait is on the clicks, not on the labels.
     var answer = Settle.until(
         () -> ask(query(websiteId, "/session-data/stats?propertyName=plan")),
-        a -> a.status() == 200 && a.body().size() == 2,
-        "both plans");
+        a -> a.status() == 200 && a.body().size() == 2
+            && a.body().get(0).get("events").asInt() + a.body().get(1).get("events").asInt() == 2,
+        "both plans, and both clicks counted");
     assertEquals("pro", answer.body().get(0).get("label").asText());
     assertTrue(answer.body().get(0).get("activity").asInt()
         > answer.body().get(1).get("activity").asInt());

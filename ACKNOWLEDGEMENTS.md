@@ -82,7 +82,7 @@ for here:
   the `utm_medium=cpc` / `utm_source=google` values the channel classifier reads. `utm_*` is a
   web-wide convention, not umami's invention; the specific values are the rules its channel
   classifier applies.
-- **Vocabulary (221)** — dimension names (`utmCampaign`, `referrerDomain`, `distinctId`),
+- **Vocabulary (222)** — dimension names (`utmCampaign`, `referrerDomain`, `distinctId`),
   operator names, data-type names, report type names, browser and operating-system identifiers
   from the user-agent tables, and the field names of every JSON body the API exchanges. These
   are the surface itself.
@@ -297,7 +297,7 @@ utm_source
 utm_source=google
 ```
 
-### Vocabulary (221)
+### Vocabulary (222)
 
 ```
  is unavailable
@@ -314,6 +314,7 @@ utm_source=google
 /session-data/numeric-stats
 /session-data/property-series
 /session-data/stats
+/sessions?
 /undefined
 0123456789abcdef
 2026-01-01T00:00:00Z

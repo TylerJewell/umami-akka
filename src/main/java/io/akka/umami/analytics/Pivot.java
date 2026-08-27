@@ -492,18 +492,18 @@ public final class Pivot {
         .toList();
   }
 
-  /** The latest write of each key a session holds, tie-broken by the record's own identifier. */
+  /**
+   * The value each key a session holds currently has.
+   *
+   * <p>There is one row per key: a write of the same key replaces the previous value where it is
+   * stored, so nothing here has to choose between two. The rows arrive oldest first, so taking
+   * each key's last row is the same answer either way.
+   */
   private Map<String, Traffic.SessionProperty> latestProperties(String websiteId,
       String sessionId) {
     var out = new LinkedHashMap<String, Traffic.SessionProperty>();
     for (var row : store.sessionProperties(websiteId, sessionId)) {
-      var held = out.get(row.property().key());
-      if (held == null
-          || row.createdAt().isAfter(held.createdAt())
-          || (row.createdAt().equals(held.createdAt())
-              && row.id().compareTo(held.id()) > 0)) {
-        out.put(row.property().key(), row);
-      }
+      out.put(row.property().key(), row);
     }
     return out;
   }

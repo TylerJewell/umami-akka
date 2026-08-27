@@ -29,8 +29,8 @@ import java.util.Locale;
 @HttpEndpoint
 public class AccountEndpoint extends Api {
 
-  public AccountEndpoint(ComponentClient client) {
-    super(client);
+  public AccountEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   // ------------------------------------------------------------------ signing in

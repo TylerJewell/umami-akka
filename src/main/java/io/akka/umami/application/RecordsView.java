@@ -148,32 +148,37 @@ public class RecordsView extends View {
     }
   }
 
-  @Query("SELECT * AS items FROM records WHERE kind = :kind AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byKind(ByKind params) {
-    return queryResult();
+  /**
+   * Every query here is a stream, for the same reason {@link FactsView}'s are: a query that
+   * projects its rows into one response is refused past a thousand of them, and a deployment
+   * with a thousand websites is an ordinary deployment.
+   */
+  @Query("SELECT * FROM records WHERE kind = :kind AND removed = 0 ORDER BY createdAt")
+  public QueryStreamEffect<Row> byKind(ByKind params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM records WHERE kind = :kind AND ownerId = :ownerId"
+  @Query("SELECT * FROM records WHERE kind = :kind AND ownerId = :ownerId"
       + " AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byOwner(ByOwner params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byOwner(ByOwner params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM records WHERE kind = :kind AND teamId = :teamId"
+  @Query("SELECT * FROM records WHERE kind = :kind AND teamId = :teamId"
       + " AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byTeam(ByTeam params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byTeam(ByTeam params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM records WHERE kind = :kind AND parentId = :parentId"
+  @Query("SELECT * FROM records WHERE kind = :kind AND parentId = :parentId"
       + " AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byParent(ByParent params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byParent(ByParent params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM records WHERE kind = :kind AND uniqueKey = :uniqueKey"
+  @Query("SELECT * FROM records WHERE kind = :kind AND uniqueKey = :uniqueKey"
       + " ORDER BY createdAt")
-  public QueryEffect<Rows> byUnique(ByUnique params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byUnique(ByUnique params) {
+    return queryStreamResult();
   }
 }

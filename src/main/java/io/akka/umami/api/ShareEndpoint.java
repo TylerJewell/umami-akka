@@ -29,8 +29,8 @@ import java.time.Instant;
 @HttpEndpoint
 public class ShareEndpoint extends Api {
 
-  public ShareEndpoint(ComponentClient client) {
-    super(client);
+  public ShareEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   @Post("/api/share")

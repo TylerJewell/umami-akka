@@ -28,14 +28,16 @@ public class Bootstrap implements ServiceSetup {
   private static final String DEFAULT_ADMIN_ID = "41e2b680-648e-4b09-bcd7-3e2b10c06264";
 
   private final ComponentClient componentClient;
+  private final akka.stream.Materializer materializer;
 
-  public Bootstrap(ComponentClient componentClient) {
+  public Bootstrap(ComponentClient componentClient, akka.stream.Materializer materializer) {
     this.componentClient = componentClient;
+    this.materializer = materializer;
   }
 
   @Override
   public void onStartup() {
-    var store = new Store(componentClient);
+    var store = new Store(componentClient, materializer);
     try {
       if (store.user(DEFAULT_ADMIN_ID) != null) {
         return;

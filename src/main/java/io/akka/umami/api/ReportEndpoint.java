@@ -27,8 +27,8 @@ import java.util.List;
 @HttpEndpoint
 public class ReportEndpoint extends Api {
 
-  public ReportEndpoint(ComponentClient client) {
-    super(client);
+  public ReportEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   // ------------------------------------------------------------------ saved reports

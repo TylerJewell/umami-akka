@@ -37,7 +37,7 @@ class ReportIntegrationTest extends TestKitSupport {
     Env.override("TWO_FACTOR_ENCRYPTION_KEY",
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     http = new HttpClientSupport("http://localhost:" + testKit.getPort());
-    Settle.until(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
+    Settle.untilStarted(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
         "the first administrator");
   }
 
@@ -145,6 +145,37 @@ class ReportIntegrationTest extends TestKitSupport {
     assertTrue(answer.body().get(0).get("dropoff").isNull(),
         "the first step has nothing before it");
     assertEquals(0.5, answer.body().get(1).get("dropoff").asDouble(), 0.0001);
+    // The first step was reached, so the proportion remaining has a value on both steps.
+    assertEquals(1.0, answer.body().get(0).get("remaining").asDouble(), 0.0001);
+    assertEquals(0.5, answer.body().get(1).get("remaining").asDouble(), 0.0001);
+  }
+
+  /** SPEC R64a: a funnel nobody entered divides nothing by nothing on both proportions. */
+  @Test
+  void anEmptyFunnelHasNoProportions() {
+    var websiteId = seeded("probe empty funnel", "probeemptyfunnel.test");
+
+    var parameters = Json.object();
+    parameters.put("window", 60);
+    var pair = Json.array();
+    for (var path : List.of("/nobody-was-here", "/nor-here")) {
+      var step = Json.object();
+      step.put("type", "path");
+      step.put("value", path);
+      pair.add(step);
+    }
+    parameters.set("steps", pair);
+
+    var answer = http.post("/api/reports/funnel", execution(websiteId, "funnel", parameters));
+    assertEquals(200, answer.status());
+    assertEquals(2, answer.body().size());
+    for (var step : answer.body()) {
+      assertEquals(0, step.get("visitors").asLong());
+      assertTrue(step.get("dropoff").isNull(), "dropoff was " + step.get("dropoff"));
+      // Zero would say the step lost everyone, which is not the same claim as having had
+      // nobody to lose.
+      assertTrue(step.get("remaining").isNull(), "remaining was " + step.get("remaining"));
+    }
   }
 
   @Test

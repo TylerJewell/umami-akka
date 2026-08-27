@@ -1,6 +1,9 @@
 package io.akka.umami.application;
 
 import akka.javasdk.client.ComponentClient;
+import akka.stream.Materializer;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
 import io.akka.umami.domain.Accounts;
 import io.akka.umami.domain.Content;
 import io.akka.umami.domain.Recordings;
@@ -46,8 +49,18 @@ public final class Store {
 
   private final ComponentClient client;
 
-  public Store(ComponentClient client) {
+  /**
+   * How a streamed view query is drained.
+   *
+   * <p>Every list this reads is a stream rather than one reply, because a query that projects its
+   * rows into a single response is refused past a thousand of them — and a thousand events in a
+   * window is a small website. Draining it needs somewhere to run, and that is what this is.
+   */
+  private final Materializer materializer;
+
+  public Store(ComponentClient client, Materializer materializer) {
     this.client = client;
+    this.materializer = materializer;
   }
 
   // ------------------------------------------------------------------ administrative rows
@@ -75,18 +88,19 @@ public final class Store {
 
   public <T> List<T> all(String kind, Class<T> type) {
     return documents(
-        client.forView().method(RecordsView::byKind).invoke(new RecordsView.ByKind(kind)), type);
+        client.forView().stream(RecordsView::byKind).source(new RecordsView.ByKind(kind)), type);
   }
 
   public <T> List<T> byOwner(String kind, String ownerId, Class<T> type) {
     return documents(
-        client.forView().method(RecordsView::byOwner).invoke(new RecordsView.ByOwner(kind, ownerId)),
+        client.forView().stream(RecordsView::byOwner)
+            .source(new RecordsView.ByOwner(kind, ownerId)),
         type);
   }
 
   public <T> List<T> byTeam(String kind, String teamId, Class<T> type) {
     return documents(
-        client.forView().method(RecordsView::byTeam).invoke(new RecordsView.ByTeam(kind, teamId)),
+        client.forView().stream(RecordsView::byTeam).source(new RecordsView.ByTeam(kind, teamId)),
         type);
   }
 
@@ -94,19 +108,20 @@ public final class Store {
     return documents(
         client
             .forView()
-            .method(RecordsView::byParent)
-            .invoke(new RecordsView.ByParent(kind, parentId)),
+            .stream(RecordsView::byParent)
+            .source(new RecordsView.ByParent(kind, parentId)),
         type);
   }
 
   /** The one row a unique key names, or null. Removed rows are excluded by the caller's rule. */
   public <T> T byUnique(String kind, String uniqueKey, Class<T> type, boolean includeRemoved) {
     var rows =
-        client
-            .forView()
-            .method(RecordsView::byUnique)
-            .invoke(new RecordsView.ByUnique(kind, uniqueKey));
-    for (var row : rows.items()) {
+        drain(
+            client
+                .forView()
+                .stream(RecordsView::byUnique)
+                .source(new RecordsView.ByUnique(kind, uniqueKey)));
+    for (var row : rows) {
       if (includeRemoved || row.removed() == 0) {
         return Json.parse(row.document(), type);
       }
@@ -114,9 +129,9 @@ public final class Store {
     return null;
   }
 
-  private static <T> List<T> documents(RecordsView.Rows rows, Class<T> type) {
-    var out = new ArrayList<T>(rows.items().size());
-    for (var row : rows.items()) {
+  private <T> List<T> documents(Source<RecordsView.Row, ?> source, Class<T> type) {
+    var out = new ArrayList<T>();
+    for (var row : drain(source)) {
       out.add(Json.parse(row.document(), type));
     }
     return out;
@@ -142,66 +157,89 @@ public final class Store {
 
   public <T> List<T> factsInRange(String kind, String websiteId, Instant from, Instant to,
       Class<T> type) {
-    var rows =
+    return facts(
         client
             .forView()
-            .method(FactsView::byRange)
-            .invoke(new FactsView.ByRange(kind, websiteId, from.toEpochMilli(), to.toEpochMilli()));
-    return facts(rows, type);
+            .stream(FactsView::byRange)
+            .source(new FactsView.ByRange(kind, websiteId, from.toEpochMilli(),
+                to.toEpochMilli())),
+        type);
   }
 
   public <T> List<T> allFacts(String kind, String websiteId, Class<T> type) {
-    var rows =
-        client.forView().method(FactsView::byWebsite).invoke(new FactsView.ByWebsite(kind,
-            websiteId));
-    return facts(rows, type);
+    return facts(
+        client.forView().stream(FactsView::byWebsite)
+            .source(new FactsView.ByWebsite(kind, websiteId)),
+        type);
   }
 
   public <T> List<T> factsBySession(String kind, String websiteId, String sessionId, Class<T> type) {
-    var rows =
+    return facts(
         client
             .forView()
-            .method(FactsView::bySession)
-            .invoke(new FactsView.BySession(kind, websiteId, sessionId));
-    return facts(rows, type);
+            .stream(FactsView::bySession)
+            .source(new FactsView.BySession(kind, websiteId, sessionId)),
+        type);
   }
 
   public <T> List<T> factsByVisit(String kind, String websiteId, String visitId, Class<T> type) {
-    var rows =
+    return facts(
         client
             .forView()
-            .method(FactsView::byVisit)
-            .invoke(new FactsView.ByVisit(kind, websiteId, visitId));
-    return facts(rows, type);
+            .stream(FactsView::byVisit)
+            .source(new FactsView.ByVisit(kind, websiteId, visitId)),
+        type);
   }
 
   public <T> List<T> factsByGroup(String kind, String websiteId, String groupKey, Class<T> type) {
-    var rows =
+    return facts(
         client
             .forView()
-            .method(FactsView::byGroup)
-            .invoke(new FactsView.ByGroup(kind, websiteId, groupKey));
-    return facts(rows, type);
+            .stream(FactsView::byGroup)
+            .source(new FactsView.ByGroup(kind, websiteId, groupKey)),
+        type);
   }
 
   /** The identities of every fact of one kind belonging to a website, for removal. */
   public List<String> factKeys(String kind, String websiteId) {
-    var rows =
-        client.forView().method(FactsView::byWebsite).invoke(new FactsView.ByWebsite(kind,
-            websiteId));
-    var out = new ArrayList<String>(rows.items().size());
-    for (var row : rows.items()) {
+    var out = new ArrayList<String>();
+    for (var row : rows(client.forView().stream(FactsView::byWebsite)
+        .source(new FactsView.ByWebsite(kind, websiteId)))) {
       out.add(row.factKey().substring(row.factKey().indexOf(':') + 1));
     }
     return out;
   }
 
-  private static <T> List<T> facts(FactsView.Rows rows, Class<T> type) {
-    var out = new ArrayList<T>(rows.items().size());
-    for (var row : rows.items()) {
+  private <T> List<T> facts(Source<FactsView.Row, ?> source, Class<T> type) {
+    var out = new ArrayList<T>();
+    for (var row : rows(source)) {
       out.add(Json.parse(row.document(), type));
     }
     return out;
+  }
+
+  /**
+   * Drains a streamed query into a list.
+   *
+   * <p>Every caller here wants the whole window at once, because the arithmetic over it needs
+   * all of it — a rollup cannot be computed from a prefix. What the stream buys is not laziness
+   * but the absence of the single-response ceiling.
+   */
+  private List<FactsView.Row> rows(Source<FactsView.Row, ?> source) {
+    return drain(source);
+  }
+
+  private <R> List<R> drain(Source<R, ?> source) {
+    if (materializer == null) {
+      throw new IllegalStateException(
+          "this Store was built without a materializer and cannot read a list");
+    }
+    try {
+      return source.runWith(Sink.seq(), materializer).toCompletableFuture().join();
+    } catch (java.util.concurrent.CompletionException failure) {
+      var cause = failure.getCause();
+      throw cause instanceof RuntimeException runtime ? runtime : failure;
+    }
   }
 
   // ------------------------------------------------------------------ named readers

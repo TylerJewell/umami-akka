@@ -40,8 +40,8 @@ public class CollectEndpoint extends Api {
 
   private static final int MAXIMUM_RECORD_BYTES = 1_000_000;
 
-  public CollectEndpoint(ComponentClient client) {
-    super(client);
+  public CollectEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   // ------------------------------------------------------------------ collection

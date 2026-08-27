@@ -125,33 +125,42 @@ public class FactsView extends View {
     }
   }
 
-  @Query("SELECT * AS items FROM facts WHERE kind = :kind AND websiteId = :websiteId"
+  /**
+   * Every query here is a stream, and none of them is a single reply.
+   *
+   * <p>A query that projects its rows into one response is refused past a thousand of them, and
+   * every analytical answer this service gives is a walk over a window of one website's facts —
+   * so a website with a thousand events in the window made every question fail rather than
+   * answer slowly. A stream has no such ceiling; what it costs is that the caller assembles the
+   * list, which {@link Store} does in one place.
+   */
+  @Query("SELECT * FROM facts WHERE kind = :kind AND websiteId = :websiteId"
       + " AND createdAt >= :from AND createdAt <= :to AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byRange(ByRange params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byRange(ByRange params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM facts WHERE kind = :kind AND websiteId = :websiteId"
+  @Query("SELECT * FROM facts WHERE kind = :kind AND websiteId = :websiteId"
       + " AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byWebsite(ByWebsite params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byWebsite(ByWebsite params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM facts WHERE kind = :kind AND websiteId = :websiteId"
+  @Query("SELECT * FROM facts WHERE kind = :kind AND websiteId = :websiteId"
       + " AND sessionId = :sessionId AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> bySession(BySession params) {
-    return queryResult();
+  public QueryStreamEffect<Row> bySession(BySession params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM facts WHERE kind = :kind AND websiteId = :websiteId"
+  @Query("SELECT * FROM facts WHERE kind = :kind AND websiteId = :websiteId"
       + " AND visitId = :visitId AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byVisit(ByVisit params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byVisit(ByVisit params) {
+    return queryStreamResult();
   }
 
-  @Query("SELECT * AS items FROM facts WHERE kind = :kind AND websiteId = :websiteId"
+  @Query("SELECT * FROM facts WHERE kind = :kind AND websiteId = :websiteId"
       + " AND groupKey = :groupKey AND removed = 0 ORDER BY createdAt")
-  public QueryEffect<Rows> byGroup(ByGroup params) {
-    return queryResult();
+  public QueryStreamEffect<Row> byGroup(ByGroup params) {
+    return queryStreamResult();
   }
 }

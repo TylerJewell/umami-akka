@@ -36,7 +36,7 @@ class CollectionIntegrationTest extends TestKitSupport {
     // The first administrator is written at startup and the index a sign-in reads is brought
     // up to date just after, so the first sign-in of a run waits for it.
     var answer =
-        Settle.until(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
+        Settle.untilStarted(() -> http.signIn("admin", "umami"), a -> a.status() == 200,
             "the first administrator");
     assertEquals(200, answer.status());
   }

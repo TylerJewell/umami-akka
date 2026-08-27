@@ -119,6 +119,24 @@ class DatesTest {
   }
 
   @Test
+  void aNamedZoneWritesALocalStampWithNoMarker() {
+    // The two formats are different strings for the same moment, and a caller grouping on
+    // them groups differently depending on which it asked for. A run in UTC cannot tell them
+    // apart, so the zone is what this asserts on.
+    var instant = Instant.parse("2026-07-24T13:37:00Z");
+    for (var unit : java.util.List.of("minute", "hour", "day", "month", "year")) {
+      var zoned = Dates.bucket(instant, unit, "America/New_York");
+      assertFalse(zoned.endsWith("Z"), unit + " carried a zone marker: " + zoned);
+      assertTrue(zoned.contains(" "), unit + " used the instant separator: " + zoned);
+      var utc = Dates.bucket(instant, unit, "UTC");
+      assertTrue(utc.endsWith("Z"), unit + " lost its zone marker: " + utc);
+      assertTrue(utc.contains("T"), unit + " lost the instant separator: " + utc);
+    }
+    assertEquals("2026-07-24 09:00:00", Dates.bucket(instant, "hour", "America/New_York"));
+    assertEquals("2026-07-24 09:37:00", Dates.bucket(instant, "minute", "America/New_York"));
+  }
+
+  @Test
   void aDayBucketIsFormattedWithItsHourAtZero() {
     var instant = Instant.parse("2026-07-24T13:37:00Z");
     assertEquals("2026-07-24T00:00:00Z", Dates.bucket(instant, "day", null));

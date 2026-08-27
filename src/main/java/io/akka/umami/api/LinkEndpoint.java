@@ -32,8 +32,8 @@ import java.util.List;
 @HttpEndpoint
 public class LinkEndpoint extends Api {
 
-  public LinkEndpoint(ComponentClient client) {
-    super(client);
+  public LinkEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   // ------------------------------------------------------------------ links

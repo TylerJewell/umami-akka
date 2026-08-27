@@ -25,8 +25,8 @@ import java.util.List;
 @HttpEndpoint
 public class TeamEndpoint extends Api {
 
-  public TeamEndpoint(ComponentClient client) {
-    super(client);
+  public TeamEndpoint(ComponentClient client, akka.stream.Materializer materializer) {
+    super(client, materializer);
   }
 
   @Get("/api/teams")

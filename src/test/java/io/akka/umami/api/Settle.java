@@ -18,6 +18,19 @@ import java.util.function.Supplier;
 public final class Settle {
 
   private static final Duration LIMIT = Duration.ofSeconds(20);
+
+  /**
+   * The wait for a runtime to be up and the first account to exist.
+   *
+   * <p>Longer than the one above, and for a different reason: an index catching up takes
+   * milliseconds, while starting a runtime and running its bootstrap takes seconds and takes
+   * more of them on a machine doing something else. Twenty seconds was enough until this
+   * project's tests were run beside a build, and then it was not; ninety was enough until they
+   * were run beside several. The limit is a backstop against waiting for ever, not an assertion
+   * about how long a start takes, so it costs nothing when the machine is idle.
+   */
+  private static final Duration STARTUP_LIMIT = Duration.ofSeconds(240);
+
   private static final long STEP_MILLIS = 50;
 
   private Settle() {}
@@ -25,7 +38,18 @@ public final class Settle {
   /** Runs the read until it satisfies the condition, or fails saying what it last saw. */
   public static <T> T until(Supplier<T> read, java.util.function.Predicate<T> holds,
       String what) {
-    var deadline = System.nanoTime() + LIMIT.toNanos();
+    return until(read, holds, what, LIMIT);
+  }
+
+  /** The same, waiting long enough for a runtime to start rather than for an index to catch up. */
+  public static <T> T untilStarted(Supplier<T> read, java.util.function.Predicate<T> holds,
+      String what) {
+    return until(read, holds, what, STARTUP_LIMIT);
+  }
+
+  private static <T> T until(Supplier<T> read, java.util.function.Predicate<T> holds,
+      String what, Duration limit) {
+    var deadline = System.nanoTime() + limit.toNanos();
     T last = null;
     while (System.nanoTime() < deadline) {
       try {

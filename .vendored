@@ -1,0 +1,1 @@
+webapp  # umami-software/umami's own front end, shipped as-is under RENDERING.md R3. Every file here was written by the umami project except the eighteen changed files and two added ones that probes/interface_diff.py names, which are this port's data layer.

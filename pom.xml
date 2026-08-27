@@ -11,4 +11,20 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>umami-akka</name>
+
+    <dependencies>
+        <!-- The original stores account passwords and two-factor backup codes as bcrypt
+             hashes at cost 10, and a rebuild has to accept a database the original wrote. -->
+        <dependency>
+            <groupId>at.favre.lib</groupId>
+            <artifactId>bcrypt</artifactId>
+            <version>0.10.2</version>
+        </dependency>
+        <!-- The two-factor setup hands back a scannable image of the provisioning address. -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+    </dependencies>
 </project>

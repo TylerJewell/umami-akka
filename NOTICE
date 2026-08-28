@@ -1,0 +1,23 @@
+umami-akka
+Copyright 2026 Tyler Jewell
+
+This software was written for the Akka Specify port experiment and is licensed
+under the Apache License, Version 2.0. See LICENSE.
+
+It is a clean-room implementation: written against a specification derived by
+running umami-software/umami and recording what it does, not by translating its source.
+
+Portions of this repository are NOT covered by that licence. The following trees
+are reused verbatim from umami-software/umami (https://github.com/umami-software/umami):
+
+    webapp/
+
+    Copyright 2022 Umami Software, Inc. <hello@umami.is>
+    Licensed under MIT
+
+Those files remain under the licence their authors chose. Nothing in this
+repository relicenses them. See LICENSING.md and .vendored.
+
+Installed dependencies inside those trees (node_modules)
+are neither this project's work nor umami-software/umami's. Each package
+there remains under the licence its own author chose.

@@ -1,0 +1,9 @@
+The files in this directory are from umami-software/umami
+(https://github.com/umami-software/umami).
+
+Copyright 2022 Umami Software, Inc. <hello@umami.is>
+Licensed under MIT. The full text is in LICENSE beside this file.
+
+They are reused here verbatim and unmodified, per this harness's RENDERING.md R3.
+Nothing in the parent repository relicenses them; the Apache License at the root
+of this repository does not apply to them.
